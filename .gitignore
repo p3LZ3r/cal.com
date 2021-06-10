@@ -2,6 +2,7 @@
 
 # .env file
 .env
+/.nova/
 
 # dependencies
 /node_modules
