@@ -40,19 +40,49 @@ export default function Type(props) {
         setIsTimeOptionsOpen(!isTimeOptionsOpen);
     }
 
-    useEffect(() => {
-      // Setting timezone only client-side
-      setSelectedTimeZone(dayjs.tz.guess())
-    }, [])
+    function toggleClockSticky() {
+        localStorage.setItem('timeOption.is24hClock', (!is24h).toString());
+        setIs24h(!is24h);
+    }
+
+    function setPreferredTimeZoneSticky({ value }: string) {
+        localStorage.setItem('timeOption.preferredTimeZone', value);
+        setSelectedTimeZone(value);
+    }
+
+    function initializeTimeOptions() {
+        setSelectedTimeZone(localStorage.getItem('timeOption.preferredTimeZone') || dayjs.tz.guess());
+        setIs24h(!!localStorage.getItem('timeOption.is24hClock'));
+    }
 
     useEffect(() => {
         telemetry.withJitsu((jitsu) => jitsu.track(telemetryEventTypes.pageView, collectPageParameters()))
-    })
+    });
 
+    // Handle date change and timezone change
+    useEffect(() => {
+
+        if ( ! selectedTimeZone ) {
+            initializeTimeOptions();
+        }
+
+        const changeDate = async () => {
+            if (!selectedDate) {
+                return
+            }
+
+            setLoading(true);
+            const res = await fetch(`/api/availability/${user}?dateFrom=${lowerBound.utc().format()}&dateTo=${upperBound.utc().format()}`);
+            const busyTimes = await res.json();
+            if (busyTimes.length > 0) setBusy(busyTimes);
+            setLoading(false);
+        }
+        changeDate();
+    }, [selectedDate, selectedTimeZone]);
 
     // Get router variables
     const router = useRouter();
-    const { user } = router.query;
+    const { user, rescheduleUid } = router.query;
 
     // Handle month changes
     const incrementMonth = () => {
@@ -86,7 +116,12 @@ export default function Type(props) {
     }
 
     // Create placeholder elements for empty days in first week
-    const weekdayOfFirst = dayjs().month(selectedMonth).date(1).day();
+    let weekdayOfFirst = dayjs().month(selectedMonth).date(1).day();
+    if (props.user.weekStart === 'Monday') {
+      weekdayOfFirst -= 1;
+      if (weekdayOfFirst < 0)
+        weekdayOfFirst = 6;
+    }
     const emptyDays = Array(weekdayOfFirst).fill(null).map((day, i) =>
         <div key={`e-${i}`} className={"text-center w-10 h-10 rounded-full mx-auto"}>
             {null}
@@ -102,22 +137,6 @@ export default function Type(props) {
             {day}
         </button>
     )];
-
-    // Handle date change and timezone change
-    useEffect(() => {
-        const changeDate = async () => {
-            if (!selectedDate) {
-                return
-            }
-
-            setLoading(true);
-            const res = await fetch(`/api/availability/${user}?dateFrom=${lowerBound.utc().format()}&dateTo=${upperBound.utc().format()}`);
-            const busyTimes = await res.json();
-            if (busyTimes.length > 0) setBusy(busyTimes);
-            setLoading(false);
-        }
-        changeDate();
-    }, [selectedDate, selectedTimeZone]);
 
     const times = useMemo(() =>
       getSlots({
@@ -161,7 +180,7 @@ export default function Type(props) {
     // Display available times
     const availableTimes = times.map((time) =>
         <div key={dayjs(time).utc().format()}>
-            <Link href={`/${props.user.username}/book?date=${dayjs(time).utc().format()}&type=${props.eventType.id}`}>
+            <Link href={`/${props.user.username}/book?date=${dayjs(time).utc().format()}&type=${props.eventType.id}` + (rescheduleUid ? "&rescheduleUid=" + rescheduleUid : "")}>
                 <a key={dayjs(time).format("hh:mma")} className="block font-medium mb-4 text-blue-600 border border-blue-600 rounded hover:text-white hover:bg-blue-600 py-4">{dayjs(time).tz(selectedTimeZone).format(is24h ? "HH:mm" : "hh:mma")}</a>
             </Link>
         </div>
@@ -171,7 +190,7 @@ export default function Type(props) {
       <div>
         <Head>
           <title>
-            {props.eventType.title} | {props.user.name || props.user.username} |
+            {rescheduleUid && "Reschedule"} {props.eventType.title} | {props.user.name || props.user.username} |
             Calendso
           </title>
           <link rel="icon" href="/favicon.ico" />
@@ -220,7 +239,7 @@ export default function Type(props) {
                           </Switch.Label>
                           <Switch
                             checked={is24h}
-                            onChange={setIs24h}
+                            onChange={toggleClockSticky}
                             className={classNames(
                               is24h ? "bg-blue-600" : "bg-gray-200",
                               "relative inline-flex flex-shrink-0 h-5 w-8 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -244,7 +263,7 @@ export default function Type(props) {
                     <TimezoneSelect
                       id="timeZone"
                       value={selectedTimeZone}
-                      onChange={({ value }) => setSelectedTimeZone(value)}
+                      onChange={setPreferredTimeZoneSticky}
                       className="mb-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
                     />
                   </div>
@@ -283,9 +302,11 @@ export default function Type(props) {
                   </div>
                 </div>
                 <div className="grid grid-cols-7 gap-y-4 text-center">
-                  <div className="uppercase text-gray-400 text-xs tracking-widest">
+                  {props.user.weekStart !== 'Monday' ? (
+                    <div className="uppercase text-gray-400 text-xs tracking-widest">
                     Sun
                   </div>
+                  ) : null}
                   <div className="uppercase text-gray-400 text-xs tracking-widest">
                     Mon
                   </div>
@@ -304,6 +325,11 @@ export default function Type(props) {
                   <div className="uppercase text-gray-400 text-xs tracking-widest">
                     Sat
                   </div>
+                  {props.user.weekStart === 'Monday' ? (
+                    <div className="uppercase text-gray-400 text-xs tracking-widest">
+                    Sun
+                  </div>
+                  ) : null}
                   {calendar}
                 </div>
               </div>
@@ -358,7 +384,8 @@ export async function getServerSideProps(context) {
             eventTypes: true,
             startTime: true,
             timeZone: true,
-            endTime: true
+            endTime: true,
+            weekStart: true,
         }
     });
 
@@ -386,7 +413,7 @@ export async function getServerSideProps(context) {
     return {
         props: {
             user,
-            eventType
+            eventType,
         },
     }
 }
