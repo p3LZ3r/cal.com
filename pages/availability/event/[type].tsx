@@ -1,10 +1,10 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Select, { OptionBase } from 'react-select';
 import prisma from '../../../lib/prisma';
-import { LocationType } from '../../../lib/location';
+import {LocationType} from '../../../lib/location';
 import Shell from '../../../components/Shell';
 import { useSession, getSession } from 'next-auth/client';
 import {
@@ -13,14 +13,27 @@ import {
   XIcon,
   PhoneIcon,
 } from '@heroicons/react/outline';
+import {EventTypeCustomInput, EventTypeCustomInputType} from "../../../lib/eventTypeInput";
+import {PlusIcon} from "@heroicons/react/solid";
 
 export default function EventType(props) {
     const router = useRouter();
 
+    const inputOptions: OptionBase[] = [
+      { value: EventTypeCustomInputType.Text, label: 'Text' },
+      { value: EventTypeCustomInputType.TextLong, label: 'Multiline Text' },
+      { value: EventTypeCustomInputType.Number, label: 'Number', },
+      { value: EventTypeCustomInputType.Bool, label: 'Checkbox', },
+    ]
+
     const [ session, loading ] = useSession();
     const [ showLocationModal, setShowLocationModal ] = useState(false);
+    const [ showAddCustomModal, setShowAddCustomModal ] = useState(false);
     const [ selectedLocation, setSelectedLocation ] = useState<OptionBase | undefined>(undefined);
+    const [ selectedInputOption, setSelectedInputOption ] = useState<OptionBase>(inputOptions[0]);
     const [ locations, setLocations ] = useState(props.eventType.locations || []);
+    const [customInputs, setCustomInputs] = useState<EventTypeCustomInput[]>(props.eventType.customInputs.sort((a, b) => a.id - b.id) || []);
+    const locationOptions = props.locationOptions
 
     const titleRef = useRef<HTMLInputElement>();
     const slugRef = useRef<HTMLInputElement>();
@@ -46,7 +59,7 @@ export default function EventType(props) {
 
         const response = await fetch('/api/availability/eventtype', {
             method: 'PATCH',
-            body: JSON.stringify({id: props.eventType.id, title: enteredTitle, slug: enteredSlug, description: enteredDescription, length: enteredLength, hidden: enteredIsHidden, locations, eventName: enteredEventName }),
+            body: JSON.stringify({id: props.eventType.id, title: enteredTitle, slug: enteredSlug, description: enteredDescription, length: enteredLength, hidden: enteredIsHidden, locations, eventName: enteredEventName, customInputs }),
             headers: {
                 'Content-Type': 'application/json'
             }
@@ -69,12 +82,6 @@ export default function EventType(props) {
         router.push('/availability');
     }
 
-    // TODO: Tie into translations instead of abstracting to locations.ts
-    const locationOptions: OptionBase[] = [
-        { value: LocationType.InPerson, label: 'In-person meeting' },
-        { value: LocationType.Phone, label: 'Phone call', },
-    ];
-
     const openLocationModal = (type: LocationType) => {
         setSelectedLocation(locationOptions.find( (option) => option.value === type));
         setShowLocationModal(true);
@@ -83,6 +90,11 @@ export default function EventType(props) {
     const closeLocationModal = () => {
         setSelectedLocation(undefined);
         setShowLocationModal(false);
+    };
+
+    const closeAddCustomModal = () => {
+      setSelectedInputOption(inputOptions[0]);
+      setShowAddCustomModal(false);
     };
 
     const LocationOptions = () => {
@@ -106,6 +118,10 @@ export default function EventType(props) {
 
                  return (
                     <p className="text-sm">Calendso will ask your invitee to enter a phone number before scheduling.</p>
+                )
+            case LocationType.GoogleMeet:
+                 return (
+                    <p className="text-sm">Calendso will provide a Google Meet location.</p>
                 )
         }
         return null;
@@ -133,6 +149,21 @@ export default function EventType(props) {
 
     const removeLocation = (selectedLocation) => {
         setLocations(locations.filter( (location) => location.type !== selectedLocation.type ));
+    };
+
+    const updateCustom = (e) => {
+      e.preventDefault();
+
+      const customInput: EventTypeCustomInput = {
+        label: e.target.label.value,
+        required: e.target.required.checked,
+        type: e.target.type.value
+      };
+
+      setCustomInputs(customInputs.concat(customInput));
+
+      console.log(customInput)
+      setShowAddCustomModal(false);
     };
 
     return (
@@ -202,6 +233,12 @@ export default function EventType(props) {
                                   <span className="ml-2 text-sm">Phone call</span>
                                 </div>
                               )}
+                              {location.type === LocationType.GoogleMeet && (
+                                <div className="flex-grow flex">
+                                  <svg className="h-6 w-6" stroke="currentColor" fill="currentColor" stroke-width="0" role="img" viewBox="0 0 24 24" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><title></title><path d="M12 0C6.28 0 1.636 4.641 1.636 10.364c0 5.421 4.945 9.817 10.364 9.817V24c6.295-3.194 10.364-8.333 10.364-13.636C22.364 4.64 17.72 0 12 0zM7.5 6.272h6.817a1.363 1.363 0 0 1 1.365 1.365v1.704l2.728-2.727v7.501l-2.726-2.726v1.703a1.362 1.362 0 0 1-1.365 1.365H7.5c-.35 0-.698-.133-.965-.4a1.358 1.358 0 0 1-.4-.965V7.637A1.362 1.362 0 0 1 7.5 6.272Z"></path></svg>
+                                  <span className="ml-2 text-sm">Google Meet</span>
+                                </div>
+                              )}
                               <div className="flex">
                                 <button type="button" onClick={() => openLocationModal(location.type)} className="mr-2 text-sm text-blue-600">Edit</button>
                                 <button onClick={() => removeLocation(location)}>
@@ -239,6 +276,44 @@ export default function EventType(props) {
                       <div className="mt-1 relative rounded-md shadow-sm">
                         <input ref={eventNameRef} type="text" name="title" id="title" className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" placeholder="Meeting with {USER}" defaultValue={props.eventType.eventName} />
                       </div>
+                    </div>
+                    <div className="mb-4">
+                      <label htmlFor="additionalFields" className="block text-sm font-medium text-gray-700">Additional Inputs</label>
+                      <ul className="w-96 mt-1">
+                        {customInputs.map( (customInput) => (
+                          <li key={customInput.type} className="bg-blue-50 mb-2 p-2 border">
+                            <div className="flex justify-between">
+                              <div>
+                                <div>
+                                  <span className="ml-2 text-sm">Label: {customInput.label}</span>
+                                </div>
+                                <div>
+                                  <span className="ml-2 text-sm">Type: {customInput.type}</span>
+                                </div>
+                                <div>
+                                  <span
+                                    className="ml-2 text-sm">{customInput.required ? "Required" : "Optional"}</span>
+                                </div>
+                              </div>
+                              <div className="flex">
+                                <button type="button" onClick={() => {
+                                }} className="mr-2 text-sm text-blue-600">Edit
+                                </button>
+                                <button onClick={() => {
+                                }}>
+                                  <XIcon className="h-6 w-6 border-l-2 pl-1 hover:text-red-500 "/>
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                        <li>
+                            <button type="button" className="sm:flex sm:items-start text-sm text-blue-600" onClick={() => setShowAddCustomModal(true)}>
+                                <PlusCircleIcon className="h-6 w-6" />
+                                <span className="ml-1">Add another input</span>
+                            </button>
+                        </li>
+                      </ul>
                     </div>
                     <div className="my-8">
                       <div className="relative flex items-start">
@@ -325,9 +400,80 @@ export default function EventType(props) {
             </div>
           </div>
           }
+          {showAddCustomModal &&
+          <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+              <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                  <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"/>
+
+                  <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                  <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                      <div className="sm:flex sm:items-start mb-4">
+                          <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                              <PlusIcon className="h-6 w-6 text-blue-600" />
+                          </div>
+                          <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                              <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">Add new custom input field</h3>
+                              <div>
+                                  <p className="text-sm text-gray-400">
+                                      This input will be shown when booking this event
+                                  </p>
+                              </div>
+                          </div>
+                      </div>
+                      <form onSubmit={updateCustom}>
+                          <div className="mb-2">
+                            <label htmlFor="type" className="block text-sm font-medium text-gray-700">Input type</label>
+                            <Select
+                                name="type"
+                                defaultValue={selectedInputOption}
+                                options={inputOptions}
+                                isSearchable="false"
+                                required
+                                className="mb-2 flex-1 block w-full focus:ring-blue-500 focus:border-blue-500 min-w-0 rounded-none rounded-r-md sm:text-sm border-gray-300 mt-1"
+                                onChange={setSelectedInputOption}
+                            />
+                          </div>
+                          <div className="mb-2">
+                              <label htmlFor="label" className="block text-sm font-medium text-gray-700">Label</label>
+                              <div className="mt-1">
+                                  <input type="text" name="label" id="label" required className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md" />
+                              </div>
+                          </div>
+                          <div className="flex items-center h-5">
+                              <input id="required" name="required" type="checkbox" className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded mr-2" defaultChecked={true}/>
+                              <label htmlFor="required" className="block text-sm font-medium text-gray-700">
+                                  Is required
+                              </label>
+                          </div>
+
+                          <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                              <button type="submit" className="btn btn-primary">
+                                  Save
+                              </button>
+                              <button onClick={closeAddCustomModal} type="button" className="btn btn-white mr-2">
+                                  Cancel
+                              </button>
+                          </div>
+                      </form>
+                  </div>
+              </div>
+          </div>
+          }
         </Shell>
       </div>
     );
+}
+
+const validJson = (jsonString: string) => {
+  try {
+      const o = JSON.parse(jsonString);
+      if (o && typeof o === "object") {
+          return o;
+      }
+  }
+  catch (e) {}
+  return false;
 }
 
 export async function getServerSideProps(context) {
@@ -344,6 +490,49 @@ export async function getServerSideProps(context) {
         }
     });
 
+    const credentials = await prisma.credential.findMany({
+        where: {
+            userId: user.id,
+        },
+        select: {
+            id: true,
+            type: true,
+            key: true
+        }
+    });
+
+    const integrations = [ {
+        installed: !!(process.env.GOOGLE_API_CREDENTIALS && validJson(process.env.GOOGLE_API_CREDENTIALS)),
+        enabled: credentials.find( (integration) => integration.type === "google_calendar" ) != null,
+        type: "google_calendar",
+        title: "Google Calendar",
+        imageSrc: "integrations/google-calendar.png",
+        description: "For personal and business accounts",
+    }, {
+        installed: !!(process.env.MS_GRAPH_CLIENT_ID && process.env.MS_GRAPH_CLIENT_SECRET),
+        type: "office365_calendar",
+        enabled: credentials.find( (integration) => integration.type === "office365_calendar" ) != null,
+        title: "Office 365 / Outlook.com Calendar",
+        imageSrc: "integrations/office-365.png",
+        description: "For personal and business accounts",
+    } ];
+
+    let locationOptions: OptionBase[] = [
+        { value: LocationType.InPerson, label: 'In-person meeting' },
+        { value: LocationType.Phone, label: 'Phone call', },
+      ];
+    
+      const hasGoogleCalendarIntegration = integrations.find((i) => i.type === "google_calendar" && i.installed === true && i.enabled)
+      if (hasGoogleCalendarIntegration) {
+        locationOptions.push( { value: LocationType.GoogleMeet, label: 'Google Meet' })
+      }
+
+      const hasOfficeIntegration = integrations.find((i) => i.type === "office365_calendar" && i.installed === true && i.enabled)
+      if (hasOfficeIntegration) {
+        // TODO: Add default meeting option of the office integration.
+        // Assuming it's Microsoft Teams.
+      }
+
     const eventType = await prisma.eventType.findUnique({
         where: {
           id: parseInt(context.query.type),
@@ -357,13 +546,15 @@ export async function getServerSideProps(context) {
             hidden: true,
             locations: true,
             eventName: true,
+            customInputs: true
         }
     });
 
     return {
         props: {
             user,
-            eventType
+            eventType,
+            locationOptions
         },
     }
 }
