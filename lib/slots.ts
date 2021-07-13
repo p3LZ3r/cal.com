@@ -81,9 +81,12 @@ const organizerBoundaries = (
         }
       }
     } else {
-      boundaries.push({ lowerBound, upperBound });
+      if (item.days.includes(startDay)) {
+        boundaries.push({ lowerBound, upperBound });
+      }
     }
   });
+
   return boundaries;
 };
 
@@ -116,7 +119,7 @@ const getSlots = ({
   workingHours,
   organizerTimeZone,
 }: GetSlots): Dayjs[] => {
-  const startTime = dayjs.utc().isSame(dayjs(inviteeDate), "day")
+  const startTime = dayjs().utcOffset(inviteeDate.utcOffset()).isSame(inviteeDate, "day")
     ? inviteeDate.hour() * 60 + inviteeDate.minute() + (minimumBookingNotice || 0)
     : 0;
 
@@ -128,7 +131,7 @@ const getSlots = ({
   )
     .reduce((slots, boundary: Boundary) => [...slots, ...getSlotsBetweenBoundary(frequency, boundary)], [])
     .map((slot) =>
-      slot.month(inviteeDate.month()).date(inviteeDate.date()).utcOffset(inviteeDate.utcOffset())
+      slot.utcOffset(inviteeDate.utcOffset()).month(inviteeDate.month()).date(inviteeDate.date())
     );
 };
 

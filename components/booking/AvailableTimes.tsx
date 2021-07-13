@@ -3,14 +3,29 @@ import { useRouter } from "next/router";
 import Slots from "./Slots";
 import { ExclamationIcon } from "@heroicons/react/solid";
 
-const AvailableTimes = ({ date, eventLength, eventTypeId, workingHours, timeFormat, user }) => {
+const AvailableTimes = ({
+  date,
+  eventLength,
+  eventTypeId,
+  workingHours,
+  timeFormat,
+  user,
+  organizerTimeZone,
+}) => {
   const router = useRouter();
   const { rescheduleUid } = router.query;
-  const { slots, isFullyBooked, hasErrors } = Slots({ date, eventLength, workingHours });
+
+  const { slots, isFullyBooked, hasErrors } = Slots({
+    date,
+    eventLength,
+    workingHours,
+    organizerTimeZone,
+  });
+
   return (
     <div className="sm:pl-4 mt-8 sm:mt-0 text-center sm:w-1/3  md:max-h-97 overflow-y-auto">
       <div className="text-gray-600 font-light text-xl mb-4 text-left">
-        <span className="w-1/2">{date.format("dddd DD MMMM YYYY")}</span>
+        <span className="w-1/2 dark:text-white text-gray-600">{date.format("dddd DD MMMM YYYY")}</span>
       </div>
       {slots.length > 0 &&
         slots.map((slot) => (
@@ -28,7 +43,7 @@ const AvailableTimes = ({ date, eventLength, eventTypeId, workingHours, timeForm
         ))}
       {isFullyBooked && (
         <div className="w-full h-full flex flex-col justify-center content-center items-center -mt-4">
-          <h1 className="text-xl font">{user.name} is all booked today.</h1>
+          <h1 className="text-xl text-black dark:text-white">{user.name} is all booked today.</h1>
         </div>
       )}
 
