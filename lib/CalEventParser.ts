@@ -37,11 +37,7 @@ export default class CalEventParser {
    * Returns a footer section with links to change the event (as HTML).
    */
   public getChangeEventFooterHtml(): string {
-    return `<br />
-<strong>Need to change this event?</strong><br />
-Cancel: <a href="${this.getCancelLink()}">${this.getCancelLink()}</a><br />
-Reschedule: <a href="${this.getRescheduleLink()}">${this.getRescheduleLink()}</a>
-    `;
+    return `<p style="color: #4b5563; margin-top: 20px;">Need to make a change? <a href="${this.getCancelLink()}" style="color: #161e2e;">Cancel</a> or <a href="${this.getRescheduleLink()}" style="color: #161e2e;">reschedule</a>.</p>`;
   }
 
   /**
@@ -88,6 +84,15 @@ Reschedule: <a href="${this.getRescheduleLink()}">${this.getRescheduleLink()}</a
   public asRichEvent(): CalendarEvent {
     const eventCopy: CalendarEvent = { ...this.calEvent };
     eventCopy.description = this.getRichDescriptionHtml();
+    return eventCopy;
+  }
+
+  /**
+   * Returns a calendar event with rich description as plain text.
+   */
+  public asRichEventPlain(): CalendarEvent {
+    const eventCopy: CalendarEvent = { ...this.calEvent };
+    eventCopy.description = this.getRichDescription();
     return eventCopy;
   }
 }

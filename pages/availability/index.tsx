@@ -121,7 +121,7 @@ export default function Availability(props) {
                 </div>
                 <div className="flex flex-col mb-8">
                     <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                        <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                        <div className="py-2 align-middle inline-block max-w-full min-w-full sm:px-6 lg:px-8">
                             <div className="shadow overflow-hidden border-b border-gray-200 rounded-lg">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
@@ -142,8 +142,8 @@ export default function Availability(props) {
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {props.types.map((eventType) =>
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                            <tr key={eventType.id}>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 align-top">
                                                     {eventType.title}
                                                     {eventType.hidden &&
                                                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
@@ -151,13 +151,13 @@ export default function Availability(props) {
                                                         </span>
                                                     }
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td className="px-6 py-4 text-sm text-gray-500 align-top">
                                                     {eventType.description}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 align-top">
                                                     {eventType.length} minutes
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium align-top">
                                                     <Link href={"/" + props.user.username + "/" + eventType.slug}><a target="_blank" className="text-blue-600 hover:text-blue-900 mr-2">View</a></Link>
                                                     <Link href={"/availability/event/" + eventType.id}><a className="text-blue-600 hover:text-blue-900">Edit</a></Link>
                                                 </td>
@@ -192,7 +192,7 @@ export default function Availability(props) {
                   <div className="w-1/2 ml-2 bg-white shadow rounded-lg">
                     <div className="px-4 py-5 sm:p-6">
                       <h3 className="text-lg leading-6 font-medium text-gray-900">
-                        Something doesn't look right?
+                        Something doesn&apos;t look right?
                       </h3>
                       <div className="mt-2 max-w-xl text-sm text-gray-500">
                         <p>
@@ -289,7 +289,7 @@ export default function Availability(props) {
                                                 <label htmlFor="ishidden" className="font-medium text-gray-700">
                                                     Hide this event type
                                                 </label>
-                                                <p className="text-gray-500">Hide the event type from your page, so it can only be booked through it's URL.</p>
+                                                <p className="text-gray-500">Hide the event type from your page, so it can only be booked through it&apos;s URL.</p>
                                             </div>
                                         </div>
                                     </div>

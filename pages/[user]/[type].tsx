@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { GetServerSideProps } from "next";
+import { GetServerSideProps, GetServerSidePropsContext } from "next";
 import Head from "next/head";
 import { ChevronDownIcon, ClockIcon, GlobeIcon } from "@heroicons/react/solid";
 import { useRouter } from "next/router";
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 
 import prisma, { whereAndSelect } from "@lib/prisma";
 import { collectPageParameters, telemetryEventTypes, useTelemetry } from "../../lib/telemetry";
@@ -22,7 +22,9 @@ export default function Type(props): Type {
 
   const { isReady } = Theme(props.user.theme);
 
-  const [selectedDate, setSelectedDate] = useState<Dayjs>();
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(() => {
+    return props.date && dayjs(props.date).isValid() ? dayjs(props.date) : null;
+  });
   const [isTimeOptionsOpen, setIsTimeOptionsOpen] = useState(false);
   const [timeFormat, setTimeFormat] = useState("h:mma");
   const telemetry = useTelemetry();
@@ -36,6 +38,26 @@ export default function Type(props): Type {
     telemetry.withJitsu((jitsu) => jitsu.track(telemetryEventTypes.dateSelected, collectPageParameters()));
     setSelectedDate(date);
   };
+
+  useEffect(() => {
+    if (!selectedDate) {
+      return;
+    }
+
+    const formattedDate = selectedDate.utc().format("YYYY-MM-DD");
+
+    router.replace(
+      {
+        query: {
+          date: formattedDate,
+        },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  }, [selectedDate]);
 
   const handleSelectTimeZone = (selectedTimeZone: string): void => {
     if (selectedDate) {
@@ -133,20 +155,28 @@ export default function Type(props): Type {
                 <p className="dark:text-gray-200 text-gray-600 mt-3 mb-8">{props.eventType.description}</p>
               </div>
               <DatePicker
+                date={selectedDate}
+                periodType={props.eventType?.periodType}
+                periodStartDate={props.eventType?.periodStartDate}
+                periodEndDate={props.eventType?.periodEndDate}
+                periodDays={props.eventType?.periodDays}
+                periodCountCalendarDays={props.eventType?.periodCountCalendarDays}
                 weekStart={props.user.weekStart}
                 onDatePicked={changeDate}
                 workingHours={props.workingHours}
                 organizerTimeZone={props.eventType.timeZone || props.user.timeZone}
                 inviteeTimeZone={timeZone()}
                 eventLength={props.eventType.length}
+                minimumBookingNotice={props.eventType.minimumBookingNotice}
               />
               {selectedDate && (
                 <AvailableTimes
                   workingHours={props.workingHours}
                   timeFormat={timeFormat}
                   organizerTimeZone={props.eventType.timeZone || props.user.timeZone}
-                  eventLength={props.eventType.length}
+                  minimumBookingNotice={props.eventType.minimumBookingNotice}
                   eventTypeId={props.eventType.id}
+                  eventLength={props.eventType.length}
                   date={selectedDate}
                   user={props.user}
                 />
@@ -160,7 +190,10 @@ export default function Type(props): Type {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getServerSideProps: GetServerSideProps = async (context: GetServerSidePropsContext) => {
+  const dateQuery = context.query?.date ?? null;
+  const date = Array.isArray(dateQuery) && dateQuery.length > 0 ? dateQuery.pop() : dateQuery;
+
   const user = await whereAndSelect(
     prisma.user.findFirst,
     {
@@ -173,7 +206,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       "email",
       "bio",
       "avatar",
-      "eventTypes",
       "startTime",
       "endTime",
       "timeZone",
@@ -196,7 +228,20 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       userId: user.id,
       slug: context.query.type,
     },
-    ["id", "title", "description", "length", "availability", "timeZone"]
+    [
+      "id",
+      "title",
+      "description",
+      "length",
+      "availability",
+      "timeZone",
+      "periodType",
+      "periodDays",
+      "periodStartDate",
+      "periodEndDate",
+      "periodCountCalendarDays",
+      "minimumBookingNotice",
+    ]
   );
 
   if (!eventType) {
@@ -223,10 +268,16 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   workingHours.sort((a, b) => a.startTime - b.startTime);
 
+  const eventTypeObject = Object.assign({}, eventType, {
+    periodStartDate: eventType.periodStartDate?.toString() ?? null,
+    periodEndDate: eventType.periodEndDate?.toString() ?? null,
+  });
+
   return {
     props: {
       user,
-      eventType,
+      date,
+      eventType: eventTypeObject,
       workingHours,
     },
   };
