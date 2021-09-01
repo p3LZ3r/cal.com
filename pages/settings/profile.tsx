@@ -1,16 +1,22 @@
 import { GetServerSideProps } from "next";
-import Head from "next/head";
 import { useEffect, useRef, useState } from "react";
-import prisma, { whereAndSelect } from "@lib/prisma";
-import Modal from "../../components/Modal";
-import Shell from "../../components/Shell";
-import SettingsShell from "../../components/Settings";
-import Avatar from "../../components/Avatar";
+import prisma from "@lib/prisma";
+import Modal from "@components/Modal";
+import Shell from "@components/Shell";
+import SettingsShell from "@components/Settings";
+import Avatar from "@components/Avatar";
 import { getSession } from "next-auth/client";
 import Select from "react-select";
 import TimezoneSelect from "react-timezone-select";
-import { UsernameInput } from "../../components/ui/UsernameInput";
-import ErrorAlert from "../../components/ui/alerts/Error";
+import { UsernameInput } from "@components/ui/UsernameInput";
+import ErrorAlert from "@components/ui/alerts/Error";
+import ImageUploader from "@components/ImageUploader";
+import crypto from "crypto";
+
+const themeOptions = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 export default function Settings(props) {
   const [successModalOpen, setSuccessModalOpen] = useState(false);
@@ -19,17 +25,13 @@ export default function Settings(props) {
   const descriptionRef = useRef<HTMLTextAreaElement>();
   const avatarRef = useRef<HTMLInputElement>();
   const hideBrandingRef = useRef<HTMLInputElement>();
-  const [selectedTheme, setSelectedTheme] = useState({ value: "" });
+  const [selectedTheme, setSelectedTheme] = useState({ value: props.user.theme });
   const [selectedTimeZone, setSelectedTimeZone] = useState({ value: props.user.timeZone });
-  const [selectedWeekStartDay, setSelectedWeekStartDay] = useState({ value: "" });
+  const [selectedWeekStartDay, setSelectedWeekStartDay] = useState({ value: props.user.weekStart });
+  const [imageSrc, setImageSrc] = useState<string>(props.user.avatar);
 
   const [hasErrors, setHasErrors] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const themeOptions = [
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-  ];
 
   useEffect(() => {
     setSelectedTheme(
@@ -40,6 +42,19 @@ export default function Settings(props) {
 
   const closeSuccessModal = () => {
     setSuccessModalOpen(false);
+  };
+
+  const handleAvatarChange = (newAvatar) => {
+    avatarRef.current.value = newAvatar;
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      "value"
+    ).set;
+    nativeInputValueSetter.call(avatarRef.current, newAvatar);
+    const ev2 = new Event("input", { bubbles: true });
+    avatarRef.current.dispatchEvent(ev2);
+    updateProfileHandler(ev2);
+    setImageSrc(newAvatar);
   };
 
   const handleError = async (resp) => {
@@ -90,27 +105,18 @@ export default function Settings(props) {
   }
 
   return (
-    <Shell heading="Profile">
-      <Head>
-        <title>Profile | Calendso</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+    <Shell heading="Profile" subtitle="Edit your profile information, which shows on your scheduling link.">
       <SettingsShell>
         <form className="divide-y divide-gray-200 lg:col-span-9" onSubmit={updateProfileHandler}>
           {hasErrors && <ErrorAlert message={errorMessage} />}
-          <div className="py-6 px-4 sm:p-6 lg:pb-8">
-            <div>
-              <h2 className="text-lg leading-6 font-medium text-gray-900">Profile</h2>
-              <p className="mt-1 text-sm text-gray-500">Review and change your public page details.</p>
-            </div>
-
-            <div className="mt-6 flex flex-col lg:flex-row">
+          <div className="py-6 lg:pb-8">
+            <div className="flex flex-col lg:flex-row">
               <div className="flex-grow space-y-6">
-                <div className="flex">
-                  <div className="w-1/2 mr-2">
+                <div className="block sm:flex">
+                  <div className="w-full sm:w-1/2 sm:mr-2 mb-6">
                     <UsernameInput ref={usernameRef} defaultValue={props.user.username} />
                   </div>
-                  <div className="w-1/2 ml-2">
+                  <div className="w-full sm:w-1/2 sm:ml-2">
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                       Full name
                     </label>
@@ -122,7 +128,7 @@ export default function Settings(props) {
                       autoComplete="given-name"
                       placeholder="Your name"
                       required
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="mt-1 block w-full border border-gray-300 rounded-sm shadow-sm py-2 px-3 focus:outline-none focus:ring-neutral-500 focus:border-neutral-500 sm:text-sm"
                       defaultValue={props.user.name}
                     />
                   </div>
@@ -140,8 +146,35 @@ export default function Settings(props) {
                       placeholder="A little something about yourself."
                       rows={3}
                       defaultValue={props.user.bio}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"></textarea>
+                      className="shadow-sm focus:ring-neutral-500 focus:border-neutral-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-sm"></textarea>
                   </div>
+                </div>
+                <div>
+                  <div className="mt-1 flex">
+                    <Avatar
+                      displayName={props.user.name}
+                      className="relative rounded-full w-10 h-10"
+                      gravatarFallbackMd5={props.user.emailMd5}
+                      imageSrc={imageSrc}
+                    />
+                    <input
+                      ref={avatarRef}
+                      type="hidden"
+                      name="avatar"
+                      id="avatar"
+                      placeholder="URL"
+                      className="mt-1 block w-full border border-gray-300 rounded-sm shadow-sm py-2 px-3 focus:outline-none focus:ring-neutral-500 focus:border-neutral-500 sm:text-sm"
+                      defaultValue={imageSrc}
+                    />
+                    <ImageUploader
+                      target="avatar"
+                      id="avatar-upload"
+                      buttonMsg="Change avatar"
+                      handleAvatarChange={handleAvatarChange}
+                      imageRef={imageSrc}
+                    />
+                  </div>
+                  <hr className="mt-6" />
                 </div>
                 <div>
                   <label htmlFor="timeZone" className="block text-sm font-medium text-gray-700">
@@ -152,7 +185,8 @@ export default function Settings(props) {
                       id="timeZone"
                       value={selectedTimeZone}
                       onChange={setSelectedTimeZone}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
+                      classNamePrefix="react-select"
+                      className="react-select-container border border-gray-300 rounded-sm shadow-sm focus:ring-neutral-500 focus:border-neutral-500 mt-1 block w-full sm:text-sm"
                     />
                   </div>
                 </div>
@@ -165,7 +199,8 @@ export default function Settings(props) {
                       id="weekStart"
                       value={selectedWeekStartDay}
                       onChange={setSelectedWeekStartDay}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
+                      classNamePrefix="react-select"
+                      className="react-select-container border border-gray-300 rounded-sm shadow-sm focus:ring-neutral-500 focus:border-neutral-500 mt-1 block w-full sm:text-sm"
                       options={[
                         { value: "Sunday", label: "Sunday" },
                         { value: "Monday", label: "Monday" },
@@ -182,12 +217,13 @@ export default function Settings(props) {
                       id="theme"
                       isDisabled={!selectedTheme}
                       defaultValue={selectedTheme || themeOptions[0]}
+                      value={selectedTheme || themeOptions[0]}
                       onChange={setSelectedTheme}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
+                      className="shadow-sm focus:ring-neutral-500 focus:border-neutral-500 mt-1 block w-full sm:text-sm border-gray-300 rounded-sm"
                       options={themeOptions}
                     />
                   </div>
-                  <div className="relative flex items-start">
+                  <div className="mt-8 relative flex items-start">
                     <div className="flex items-center h-5">
                       <input
                         id="theme-adjust-os"
@@ -195,7 +231,7 @@ export default function Settings(props) {
                         type="checkbox"
                         onChange={(e) => setSelectedTheme(e.target.checked ? null : themeOptions[0])}
                         defaultChecked={!selectedTheme}
-                        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        className="focus:ring-neutral-500 h-4 w-4 text-neutral-900 border-gray-300 rounded-sm"
                       />
                     </div>
                     <div className="ml-3 text-sm">
@@ -214,7 +250,7 @@ export default function Settings(props) {
                         type="checkbox"
                         ref={hideBrandingRef}
                         defaultChecked={props.user.hideBranding}
-                        className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300 rounded"
+                        className="focus:ring-neutral-500 h-4 w-4 text-neutral-900 border-gray-300 rounded-sm"
                       />
                     </div>
                     <div className="ml-3 text-sm">
@@ -227,7 +263,7 @@ export default function Settings(props) {
                 </div>
               </div>
 
-              <div className="mt-6 flex-grow lg:mt-0 lg:ml-6 lg:flex-grow-0 lg:flex-shrink-0">
+              {/*<div className="mt-6 flex-grow lg:mt-0 lg:ml-6 lg:flex-grow-0 lg:flex-shrink-0">
                 <p className="mb-2 text-sm font-medium text-gray-700" aria-hidden="true">
                   Photo
                 </p>
@@ -238,15 +274,6 @@ export default function Settings(props) {
                       aria-hidden="true">
                       <Avatar user={props.user} className="rounded-full h-full w-full" />
                     </div>
-                    {/* <div className="ml-5 rounded-md shadow-sm">
-                                            <div className="group relative border border-gray-300 rounded-md py-2 px-3 flex items-center justify-center hover:bg-gray-50 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
-                                                <label htmlFor="user_photo" className="relative text-sm leading-4 font-medium text-gray-700 pointer-events-none">
-                                                    <span>Change</span>
-                                                    <span className="sr-only"> user photo</span>
-                                                </label>
-                                                <input id="user_photo" name="user_photo" type="file" className="absolute w-full h-full opacity-0 cursor-pointer border-gray-300 rounded-md" />
-                                            </div>
-                                        </div> */}
                   </div>
                 </div>
 
@@ -254,13 +281,8 @@ export default function Settings(props) {
                   <Avatar
                     user={props.user}
                     className="relative rounded-full w-40 h-40"
-                    fallback={<div className="relative bg-blue-600 rounded-full w-40 h-40"></div>}
+                    fallback={<div className="relative bg-neutral-900 rounded-full w-40 h-40"></div>}
                   />
-                  {/* <label htmlFor="user-photo" className="absolute inset-0 w-full h-full bg-black bg-opacity-75 flex items-center justify-center text-sm font-medium text-white opacity-0 hover:opacity-100 focus-within:opacity-100">
-                                        <span>Change</span>
-                                        <span className="sr-only"> user photo</span>
-                                        <input type="file" id="user-photo" name="user-photo" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer border-gray-300 rounded-md" />
-                                    </label> */}
                 </div>
                 <div className="mt-4">
                   <label htmlFor="avatar" className="block text-sm font-medium text-gray-700">
@@ -272,17 +294,17 @@ export default function Settings(props) {
                     name="avatar"
                     id="avatar"
                     placeholder="URL"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="mt-1 block w-full border border-gray-300 rounded-sm shadow-sm py-2 px-3 focus:outline-none focus:ring-neutral-500 focus:border-neutral-500 sm:text-sm"
                     defaultValue={props.user.avatar}
                   />
                 </div>
-              </div>
+              </div>*/}
             </div>
             <hr className="mt-8" />
             <div className="py-4 flex justify-end">
               <button
                 type="submit"
-                className="ml-2 bg-blue-600 border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                className="ml-2 bg-neutral-900 border border-transparent rounded-sm shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-white hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-500">
                 Save
               </button>
             </div>
@@ -305,15 +327,30 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     return { redirect: { permanent: false, destination: "/auth/login" } };
   }
 
-  const user = await whereAndSelect(
-    prisma.user.findFirst,
-    {
+  const user = await prisma.user.findUnique({
+    where: {
       id: session.user.id,
     },
-    ["id", "username", "name", "email", "bio", "avatar", "timeZone", "weekStart", "hideBranding", "theme"]
-  );
+    select: {
+      id: true,
+      username: true,
+      name: true,
+      email: true,
+      bio: true,
+      avatar: true,
+      timeZone: true,
+      weekStart: true,
+      hideBranding: true,
+      theme: true,
+    },
+  });
 
   return {
-    props: { user }, // will be passed to the page component as props
+    props: {
+      user: {
+        ...user,
+        emailMd5: crypto.createHash("md5").update(user.email).digest("hex"),
+      },
+    },
   };
 };

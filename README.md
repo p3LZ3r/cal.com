@@ -20,6 +20,17 @@
   </p>
 </p>
 
+<p align="center">
+   <a href="https://calendso.com/slack"><img src="https://img.shields.io/badge/Slack-calendso.slack.com-%234A154B" alt="Join Calendso Slack"></a>
+   <a href="https://www.producthunt.com/posts/calendso"><img src="https://img.shields.io/badge/Product%20Hunt-%231%20Product%20of%20the%20Month-%23DA552E" alt="Product Hunt"></a>
+  <a href="https://github.com/calendso/calendso/stargazers"><img src="https://img.shields.io/github/stars/calendso/calendso" alt="Github Stars"></a>
+  <a href="https://news.ycombinator.com/item?id=26817795"><img src="https://img.shields.io/badge/Hacker%20News-311-%23FF6600" alt="Hacker News"></a>
+  <img src="https://img.shields.io/github/license/calendso/calendso" alt="License">
+  <img src="https://img.shields.io/github/package-json/v/calendso/calendso">
+  <a href="https://github.com/calendso/calendso/pulse"><img src="https://img.shields.io/github/commit-activity/m/calendso/calendso" alt="Commits-per-month"></a>
+  <a href="https://calendso.com/pricing"><img src="https://img.shields.io/badge/Pricing-%2412%2Fmonth-brightgreen" alt="Pricing"></a>  
+</p>
+
 <!-- ABOUT THE PROJECT -->
 
 ## About The Project
@@ -123,6 +134,7 @@ You will also need Google API credentials. You can get this from the [Google API
 8. Click on the `User` model to add a new user record.
 9. Fill out the fields (remembering to encrypt your password with [BCrypt](https://bcrypt-generator.com/)) and click `Save 1 Record` to create your first user.
 10. Open a browser to [http://localhost:3000](http://localhost:3000) and login with your just created, first user.
+11. Set a 32 character random string in your .env file for the CALENDSO_ENCRYPTION_KEY.
 
 ### Upgrading from earlier versions
 
@@ -229,16 +241,13 @@ Contributions are what make the open source community such an amazing place to b
 2. On the upper right, click "Develop" => "Build App".
 3. On "OAuth", select "Create".
 4. Name your App.
-5. Choose "Account-level app" as the app type.
+5. Choose "User-managed app" as the app type.
 6. De-select the option to publish the app on the Zoom App Marketplace.
 7. Click "Create".
 8. Now copy the Client ID and Client Secret to your .env file into the `ZOOM_CLIENT_ID` and `ZOOM_CLIENT_SECRET` fields.
 9. Set the Redirect URL for OAuth `<CALENDSO URL>/api/integrations/zoomvideo/callback` replacing CALENDSO URL with the URI at which your application runs.
 10. Also add the redirect URL given above as a whitelist URL and enable "Subdomain check". Make sure, it says "saved" below the form.
-11. You don't need to provide basic information about your app. Instead click at "Scopes" and then at "+ Add Scopes". Search for and check the following scopes:
-    1. account:write:admin
-    2. meeting:write:admin
-    3. user:write:admin
+11. You don't need to provide basic information about your app. Instead click at "Scopes" and then at "+ Add Scopes". On the left, click the category "Meeting" and check the scope `meeting:write`.
 12. Click "Done".
 13. You're good to go. Now you can easily add your Zoom integration in the Calendso settings.
 

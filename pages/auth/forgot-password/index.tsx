@@ -1,10 +1,10 @@
-import Head from "next/head";
+import { HeadSeo } from "@components/seo/head-seo";
 import Link from "next/link";
 import React from "react";
-import { getCsrfToken } from "next-auth/client";
+import { getCsrfToken, getSession } from "next-auth/client";
 import debounce from "lodash.debounce";
 
-export default function Page({ csrfToken }) {
+export default function ForgotPassword({ csrfToken }) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [success, setSuccess] = React.useState(false);
@@ -71,11 +71,7 @@ export default function Page({ csrfToken }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <Head>
-        <title>Forgot Password</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
+      <HeadSeo title="Forgot Password" description="Forgot Password" />
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 mx-2 shadow rounded-lg sm:px-10 space-y-6">
           {success && <Success />}
@@ -104,7 +100,7 @@ export default function Page({ csrfToken }) {
                       autoComplete="email"
                       placeholder="john.doe@example.com"
                       required
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black sm:text-sm"
                     />
                   </div>
                 </div>
@@ -113,7 +109,7 @@ export default function Page({ csrfToken }) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                    className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black ${
                       loading ? "cursor-not-allowed" : ""
                     }`}>
                     {loading && (
@@ -142,7 +138,7 @@ export default function Page({ csrfToken }) {
                   <Link href="/auth/login">
                     <button
                       type="button"
-                      className="w-full flex justify-center py-2 px-4 text-sm font-medium text-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                      className="w-full flex justify-center py-2 px-4 text-sm font-medium text-black focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black">
                       Login
                     </button>
                   </Link>
@@ -156,8 +152,17 @@ export default function Page({ csrfToken }) {
   );
 }
 
-Page.getInitialProps = async ({ req }) => {
+ForgotPassword.getInitialProps = async (context) => {
+  const { req, res } = context;
+  const session = await getSession({ req });
+
+  if (session) {
+    res.writeHead(302, { Location: "/" });
+    res.end();
+    return;
+  }
+
   return {
-    csrfToken: await getCsrfToken({ req }),
+    csrfToken: await getCsrfToken(context),
   };
 };
