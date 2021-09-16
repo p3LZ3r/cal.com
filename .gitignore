@@ -8,6 +8,7 @@
 /node_modules
 /.pnp
 .pnp.js
+/.yarn
 
 # testing
 /coverage
@@ -50,3 +51,7 @@ yarn-error.log*
 
 # Local History for Visual Studio Code
 .history/
+
+
+cypress/videos
+cypress/screenshots

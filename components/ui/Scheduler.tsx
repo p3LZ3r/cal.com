@@ -107,7 +107,7 @@ export const Scheduler = ({
             <div className="mt-1">
               <TimezoneSelect
                 id="timeZone"
-                value={selectedTimeZone}
+                value={{ value: selectedTimeZone }}
                 onChange={(tz) => setTimeZone(tz.value)}
                 className="shadow-sm focus:ring-black focus:border-black mt-1 block w-full sm:text-sm border-gray-300 rounded-md"
               />

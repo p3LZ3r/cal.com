@@ -1,8 +1,17 @@
 import { HeadSeo } from "@components/seo/head-seo";
 import Link from "next/link";
-import { getCsrfToken, getSession } from "next-auth/client";
-
+import { getCsrfToken } from "next-auth/client";
+import { getSession } from "@lib/auth";
+import { useEffect } from "react";
+import { useRouter } from "next/router";
 export default function Login({ csrfToken }) {
+  const router = useRouter();
+  useEffect(() => {
+    if (!router.query?.callbackUrl) {
+      window.history.replaceState(null, document.title, "?callbackUrl=/");
+    }
+  }, [router.query]);
+
   return (
     <div className="min-h-screen bg-neutral-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <HeadSeo title="Login" description="Login" />
@@ -67,7 +76,7 @@ export default function Login({ csrfToken }) {
         </div>
         <div className="mt-4 text-neutral-600 text-center text-sm">
           Don&apos;t have an account? {/* replace this with your account creation flow */}
-          <a href="https://checkout.calendso.com" className="font-medium text-neutral-900">
+          <a href="https://cal.com/signup" className="font-medium text-neutral-900">
             Create an account
           </a>
         </div>
