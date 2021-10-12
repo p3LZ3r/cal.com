@@ -5,9 +5,14 @@ import { RefObject, useEffect, useRef, useState } from "react";
 import Select from "react-select";
 import TimezoneSelect from "react-timezone-select";
 
-import { asStringOrUndefined } from "@lib/asStringOrNull";
+import { asStringOrNull, asStringOrUndefined } from "@lib/asStringOrNull";
 import { getSession } from "@lib/auth";
-import { extractLocaleInfo, localeLabels, localeOptions, OptionType } from "@lib/core/i18n/i18n.utils";
+import {
+  getOrSetUserLocaleFromHeaders,
+  localeLabels,
+  localeOptions,
+  OptionType,
+} from "@lib/core/i18n/i18n.utils";
 import { useLocale } from "@lib/hooks/useLocale";
 import { isBrandingHidden } from "@lib/isBrandingHidden";
 import prisma from "@lib/prisma";
@@ -16,7 +21,7 @@ import { inferSSRProps } from "@lib/types/inferSSRProps";
 
 import ImageUploader from "@components/ImageUploader";
 import Modal from "@components/Modal";
-import SettingsShell from "@components/Settings";
+import SettingsShell from "@components/SettingsShell";
 import Shell from "@components/Shell";
 import { Alert } from "@components/ui/Alert";
 import Avatar from "@components/ui/Avatar";
@@ -155,7 +160,7 @@ export default function Settings(props: Props) {
         timeZone: enteredTimeZone,
         weekStart: asStringOrUndefined(enteredWeekStartDay),
         hideBranding: enteredHideBranding,
-        theme: asStringOrUndefined(selectedTheme?.value),
+        theme: asStringOrNull(selectedTheme?.value),
         locale: enteredLanguage,
       })
       .then(() => {
@@ -199,6 +204,29 @@ export default function Settings(props: Props) {
                   </div>
                 </div>
 
+                <div className="block sm:flex">
+                  <div className="w-full sm:w-1/2 sm:mr-2 mb-6">
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                      Email
+                    </label>
+                    <input
+                      type="text"
+                      name="email"
+                      id="email"
+                      placeholder="Your email"
+                      disabled
+                      className="mt-1 block w-full py-2 px-3 text-gray-500 border  border-gray-300 rounded-l-sm bg-gray-50 sm:text-sm"
+                      defaultValue={props.user.email}
+                    />
+                    <p className="mt-2 text-sm text-gray-500" id="email-description">
+                      To change your email, please contact{" "}
+                      <a className="text-blue-500" href="mailto:help@cal.com">
+                        help@cal.com
+                      </a>
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <label htmlFor="about" className="block text-sm font-medium text-gray-700">
                     About
@@ -236,7 +264,7 @@ export default function Settings(props: Props) {
                       id="avatar-upload"
                       buttonMsg="Change avatar"
                       handleAvatarChange={handleAvatarChange}
-                      imageRef={imageSrc}
+                      imageSrc={imageSrc}
                     />
                   </div>
                   <hr className="mt-6" />
@@ -310,7 +338,7 @@ export default function Settings(props: Props) {
                         name="theme-adjust-os"
                         type="checkbox"
                         onChange={(e) => setSelectedTheme(e.target.checked ? null : themeOptions[0])}
-                        defaultChecked={!selectedTheme}
+                        checked={!selectedTheme}
                         className="focus:ring-neutral-500 h-4 w-4 text-neutral-900 border-gray-300 rounded-sm"
                       />
                     </div>
@@ -393,7 +421,7 @@ export default function Settings(props: Props) {
 
 export const getServerSideProps = async (context: GetServerSidePropsContext) => {
   const session = await getSession(context);
-  const locale = await extractLocaleInfo(context.req);
+  const locale = await getOrSetUserLocaleFromHeaders(context.req);
 
   if (!session?.user?.id) {
     return { redirect: { permanent: false, destination: "/auth/login" } };

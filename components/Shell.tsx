@@ -15,9 +15,11 @@ import { useRouter } from "next/router";
 import React, { Fragment, ReactNode, useEffect } from "react";
 import { Toaster } from "react-hot-toast";
 
+import LicenseBanner from "@ee/components/LicenseBanner";
 import HelpMenuItemDynamic from "@ee/lib/intercom/HelpMenuItemDynamic";
 
 import classNames from "@lib/classNames";
+import { shouldShowOnboarding } from "@lib/getting-started";
 import { collectPageParameters, telemetryEventTypes, useTelemetry } from "@lib/telemetry";
 import { trpc } from "@lib/trpc";
 
@@ -28,10 +30,7 @@ import Logo from "./Logo";
 
 function useMeQuery() {
   const [session] = useSession();
-  const meQuery = trpc.useQuery(["viewer.me"], {
-    // refetch max once per 5s
-    staleTime: 5000,
-  });
+  const meQuery = trpc.useQuery(["viewer.me"]);
 
   useEffect(() => {
     // refetch if sesion changes
@@ -58,10 +57,31 @@ function useRedirectToLoginIfUnauthenticated() {
   }, [loading, session, router]);
 }
 
+export function ShellSubHeading(props: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={classNames("block sm:flex justify-between mb-3", props.className)}>
+      <div>
+        {/* TODO should be Roboto */}
+        <h2 className="text-lg font-bold text-gray-900 flex items-center content-center space-x-2">
+          {props.title}
+        </h2>
+        {props.subtitle && <p className="text-sm text-neutral-500 mr-4">{props.subtitle}</p>}
+      </div>
+      {props.actions && <div className="mb-4 flex-shrink-0">{props.actions}</div>}
+    </div>
+  );
+}
+
 export default function Shell(props: {
+  centered?: boolean;
   title?: string;
   heading: ReactNode;
-  subtitle: string;
+  subtitle?: ReactNode;
   children: ReactNode;
   CTA?: ReactNode;
 }) {
@@ -72,42 +92,51 @@ export default function Shell(props: {
   const telemetry = useTelemetry();
   const query = useMeQuery();
 
+  useEffect(
+    function redirectToOnboardingIfNeeded() {
+      if (query.data && shouldShowOnboarding(query.data)) {
+        router.push("/getting-started");
+      }
+    },
+    [query.data, router]
+  );
+
   const navigation = [
     {
       name: "Event Types",
       href: "/event-types",
       icon: LinkIcon,
-      current: router.pathname.startsWith("/event-types"),
+      current: router.asPath.startsWith("/event-types"),
     },
     {
       name: "Bookings",
-      href: "/bookings",
+      href: "/bookings/upcoming",
       icon: ClockIcon,
-      current: router.pathname.startsWith("/bookings"),
+      current: router.asPath.startsWith("/bookings"),
     },
     {
       name: "Availability",
       href: "/availability",
       icon: CalendarIcon,
-      current: router.pathname.startsWith("/availability"),
+      current: router.asPath.startsWith("/availability"),
     },
     {
       name: "Integrations",
       href: "/integrations",
       icon: PuzzleIcon,
-      current: router.pathname.startsWith("/integrations"),
+      current: router.asPath.startsWith("/integrations"),
     },
     {
       name: "Settings",
       href: "/settings/profile",
       icon: CogIcon,
-      current: router.pathname.startsWith("/settings"),
+      current: router.asPath.startsWith("/settings"),
     },
   ];
 
   useEffect(() => {
     telemetry.withJitsu((jitsu) => {
-      return jitsu.track(telemetryEventTypes.pageView, collectPageParameters(router.pathname));
+      return jitsu.track(telemetryEventTypes.pageView, collectPageParameters(router.asPath));
     });
   }, [telemetry]);
 
@@ -121,7 +150,7 @@ export default function Shell(props: {
     <>
       <HeadSeo
         title={pageTitle ?? "Cal.com"}
-        description={props.subtitle}
+        description={props.subtitle ? props.subtitle?.toString() : ""}
         nextSeoProps={{
           nofollow: true,
           noindex: true,
@@ -132,10 +161,8 @@ export default function Shell(props: {
       </div>
 
       <div className="h-screen flex overflow-hidden bg-gray-100">
-        {/* Static sidebar for desktop */}
         <div className="hidden md:flex md:flex-shrink-0">
           <div className="flex flex-col w-56">
-            {/* Sidebar component, swap this element with another sidebar if you like */}
             <div className="flex flex-col h-0 flex-1 border-r border-gray-200 bg-white">
               <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
                 <Link href="/event-types">
@@ -176,7 +203,7 @@ export default function Shell(props: {
         </div>
 
         <div className="flex flex-col w-0 flex-1 overflow-hidden">
-          <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none">
+          <main className="flex-1 relative z-0 overflow-y-auto focus:outline-none max-w-[1700px]">
             {/* show top navigation for md and smaller (tablet and phones) */}
             <nav className="md:hidden bg-white shadow p-4 flex justify-between items-center">
               <Link href="/event-types">
@@ -198,16 +225,17 @@ export default function Shell(props: {
                 </div>
               </div>
             </nav>
-            <div className="py-8">
-              <div className="block sm:flex justify-between px-4 sm:px-6 md:px-8">
-                <div className="mb-8">
-                  <h1 className="font-cal text-xl font-bold text-gray-900">{props.heading}</h1>
+            <div className={classNames(props.centered && "md:max-w-5xl mx-auto", "py-8")}>
+              <div className="block sm:flex justify-between px-4 sm:px-6 md:px-8 min-h-[80px]">
+                <div className="mb-8 w-full">
+                  <h1 className="font-cal text-xl font-bold text-gray-900 tracking-wide mb-1">
+                    {props.heading}
+                  </h1>
                   <p className="text-sm text-neutral-500 mr-4">{props.subtitle}</p>
                 </div>
                 <div className="mb-4 flex-shrink-0">{props.CTA}</div>
               </div>
               <div className="px-4 sm:px-6 md:px-8">{props.children}</div>
-
               {/* show bottom navigation for md and smaller (tablet and phones) */}
               <nav className="bottom-nav md:hidden flex fixed bottom-0 bg-white w-full shadow">
                 {/* note(PeerRich): using flatMap instead of map to remove settings from bottom nav */}
@@ -237,10 +265,10 @@ export default function Shell(props: {
                   )
                 )}
               </nav>
-
               {/* add padding to content for mobile navigation*/}
               <div className="block md:hidden pt-12" />
             </div>
+            <LicenseBanner />
           </main>
         </div>
       </div>
