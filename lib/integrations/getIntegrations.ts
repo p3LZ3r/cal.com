@@ -1,9 +1,10 @@
 import { Prisma } from "@prisma/client";
+import _ from "lodash";
 
 import { validJson } from "@lib/jsonUtils";
 
 const credentialData = Prisma.validator<Prisma.CredentialArgs>()({
-  select: { id: true, type: true, key: true },
+  select: { id: true, type: true },
 });
 
 type CredentialData = Prisma.CredentialGetPayload<typeof credentialData>;
@@ -34,6 +35,14 @@ export const ALL_INTEGRATIONS = [
     variant: "conferencing",
   },
   {
+    installed: !!process.env.DAILY_API_KEY,
+    type: "daily_video",
+    title: "Daily.co Video",
+    imageSrc: "integrations/daily.svg",
+    description: "Video Conferencing",
+    variant: "conferencing",
+  },
+  {
     installed: true,
     type: "caldav_calendar",
     title: "CalDav Server",
@@ -58,27 +67,37 @@ export const ALL_INTEGRATIONS = [
     type: "stripe_payment",
     title: "Stripe",
     imageSrc: "integrations/stripe.svg",
-    description: "Receive payments",
+    description: "Collect payments",
     variant: "payment",
   },
 ] as const;
-function getIntegrations(credentials: CredentialData[]) {
-  const integrations = ALL_INTEGRATIONS.map((integration) => ({
-    ...integration,
-    /**
-     * @deprecated use `credentials.
-     */
-    credential: credentials.find((credential) => credential.type === integration.type) || null,
-    credentials: credentials.filter((credential) => credential.type === integration.type) || null,
-  }));
+
+function getIntegrations(userCredentials: CredentialData[]) {
+  const integrations = ALL_INTEGRATIONS.map((integration) => {
+    const credentials = userCredentials
+      .filter((credential) => credential.type === integration.type)
+      .map((credential) => _.pick(credential, ["id", "type"])); // ensure we don't leak `key` to frontend
+
+    const credential: typeof credentials[number] | null = credentials[0] || null;
+    return {
+      ...integration,
+      /**
+       * @deprecated use `credentials`
+       */
+      credential,
+      credentials,
+    };
+  });
 
   return integrations;
 }
 
-export type IntegraionMeta = ReturnType<typeof getIntegrations>;
+export type IntegrationMeta = ReturnType<typeof getIntegrations>;
 
-export function hasIntegration(integrations: ReturnType<typeof getIntegrations>, type: string): boolean {
-  return !!integrations.find((i) => i.type === type && !!i.installed && !!i.credential);
+export function hasIntegration(integrations: IntegrationMeta, type: string): boolean {
+  return !!integrations.find(
+    (i) => i.type === type && !!i.installed && (type === "daily_video" || i.credentials.length > 0)
+  );
 }
 
 export default getIntegrations;
